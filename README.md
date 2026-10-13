@@ -5,9 +5,13 @@ Small ML service that predicts a short-term **diabetes progression index**
 prioritize follow-up calls. Built with FastAPI + scikit-learn, shipped as a
 self-contained Docker image, automated with GitHub Actions.
 
-**v0.1 baseline model:** `StandardScaler + LinearRegression`, trained on the
-open scikit-learn Diabetes dataset (hold-out split, seed fixed for
-reproducibility).
+**v0.2 model:** `StandardScaler + Ridge(alpha=1)`, trained on the open
+scikit-learn Diabetes dataset (hold-out split, seed fixed for
+reproducibility). Model selection was done via repeated cross-validation on
+the training split only (see CHANGELOG.md for the full comparison). A
+calibrated **high-risk threshold of 170.0** (60th percentile of training
+targets) lets the dashboard flag patients as high-risk when
+`prediction >= 170.0` — see the flag metrics in CHANGELOG.md.
 
 ---
 
@@ -32,8 +36,11 @@ curl -X POST http://localhost:80/predict \
 ```
 
 ```json
-{"prediction": 152.3}
+{"prediction": 226.913}
 ```
+
+(The value is the actual model output for the sample payload above;
+your own payloads will of course produce other scores.)
 
 The 10 features are the standardized columns of the scikit-learn Diabetes
 dataset (`age`, `sex`, `bmi`, `bp`, `s1`–`s6`), exactly as returned by
@@ -51,8 +58,7 @@ return **HTTP 422** with a JSON body in FastAPI's standard validation format:
       "type": "missing",
       "loc": ["body", "s6"],
       "msg": "Field required",
-      "input": {"age": 0.02, "sex": -0.044, "bmi": 0.06, "bp": -0.03, "s1": -0.02, "s2": 0.03, "s3": -0.02, "s4": 0.02, "s5": 0.02},
-      "url": "https://errors.pydantic.dev/2.10/v/missing"
+      "input": {"age": 0.02, "sex": -0.044, "bmi": 0.06, "bp": -0.03, "s1": -0.02, "s2": 0.03, "s3": -0.02, "s4": 0.02, "s5": 0.02}
     }
   ]
 }
