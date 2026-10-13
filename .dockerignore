@@ -10,6 +10,7 @@ metrics
 tests
 README.md
 CHANGELOG.md
+AI_USAGE.md
 .gitignore
 .dockerignore
 requirements-dev.txt

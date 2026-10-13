@@ -1,9 +1,15 @@
 # Virtual Diabetes Clinic Triage (ML Service)
 
+**Assignment 3 — Group S (DSV, Stockholm University)**
+
 Small ML service that predicts a short-term **diabetes progression index**
 (higher = worse) from standardized patient features, so a triage nurse can
 prioritize follow-up calls. Built with FastAPI + scikit-learn, shipped as a
 self-contained Docker image, automated with GitHub Actions.
+
+> **AI usage:** This project was completed with AI support as permitted by
+> [DSV's AI policy](https://www.su.se/english/divisions/department-of-computer-and-systems-sciences/education/during-your-studies/dsvs-ai-policy).
+> The use of AI tools is declared in [`AI_USAGE.md`](AI_USAGE.md).
 
 ## Versions
 
