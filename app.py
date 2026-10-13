@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import joblib
+import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
@@ -70,6 +71,11 @@ def health() -> dict:
 @app.post("/predict")
 def predict(features: PatientFeatures) -> dict:
     """Return the predicted progression index (higher = worse)."""
-    row = [[getattr(features, name) for name in FEATURE_ORDER]]
+    # DataFrame with feature names: matches how the pipeline was fitted
+    # (avoids sklearn feature-name warnings in the server logs).
+    row = pd.DataFrame(
+        [[getattr(features, name) for name in FEATURE_ORDER]],
+        columns=FEATURE_ORDER,
+    )
     prediction = float(pipeline.predict(row)[0])
     return {"prediction": round(prediction, 3)}

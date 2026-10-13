@@ -74,3 +74,6 @@ def test_training_writes_metrics():
     assert metrics["rmse"] > 0
     assert metrics["random_seed"] == 42
     assert metrics["model_version"] in {"dev", "test", "v0.1", "v0.2"}
+    # v0.2: calibrated high-risk flag metrics must be present
+    for key in ("flag_threshold", "flag_precision", "flag_recall"):
+        assert key in metrics
