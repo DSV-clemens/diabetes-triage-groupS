@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# generated at build/training time (model is baked into the Docker image)
+model/
+metrics/
+
+.env
+*.log
