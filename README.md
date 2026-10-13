@@ -5,17 +5,42 @@ Small ML service that predicts a short-term **diabetes progression index**
 prioritize follow-up calls. Built with FastAPI + scikit-learn, shipped as a
 self-contained Docker image, automated with GitHub Actions.
 
-**v0.2 model:** `StandardScaler + Ridge(alpha=1)`, trained on the open
-scikit-learn Diabetes dataset (hold-out split, seed fixed for
-reproducibility). Model selection was done via repeated cross-validation on
-the training split only (see CHANGELOG.md for the full comparison). A
-calibrated **high-risk threshold of 170.0** (60th percentile of training
-targets) lets the dashboard flag patients as high-risk when
-`prediction >= 170.0` — see the flag metrics in CHANGELOG.md.
+## Versions
 
----
+The service has two released versions. **Both are used the same way** —
+identical endpoints, identical request/response formats; they only differ in
+the trained model. Each running container reports its version via `GET /health`.
 
-## Endpoints
+|                            | v0.1 (baseline)                    | v0.2 (improvement)                                  |
+| -------------------------- | ---------------------------------- | --------------------------------------------------- |
+| Model                      | StandardScaler + LinearRegression  | StandardScaler + Ridge(alpha=1)                     |
+| High-risk flag             | —                                  | threshold 170.0 (Precision 0.70 / Recall 0.64)       |
+| Test RMSE (hold-out, seed 42) | 53.8534                          | **53.7775**                                         |
+| Prediction for the sample payload below | 235.95                | 226.913                                             |
+
+See `CHANGELOG.md` for the full v0.1 → v0.2 comparison, the metric deltas and
+the model-selection evidence (repeated cross-validation on the training split).
+
+## Run with Docker (released images)
+
+Both released images are publicly available on GHCR. **GHCR paths are all
+lowercase**, so the image name differs from the repository name:
+
+```bash
+# v0.1 (baseline)
+docker pull ghcr.io/dsv-clemens/diabetes-triage-groups:v0.1
+docker run -it -p 80:80 ghcr.io/dsv-clemens/diabetes-triage-groups:v0.1
+
+# v0.2 (improvement) — stop the v0.1 container first (same port)
+docker pull ghcr.io/dsv-clemens/diabetes-triage-groups:v0.2
+docker run -it -p 80:80 ghcr.io/dsv-clemens/diabetes-triage-groups:v0.2
+```
+
+The images are self-contained: the trained model is **baked in at build
+time** (training runs inside the build with a fixed seed, so it is
+reproducible). The service listens on port **80** inside the container.
+
+## Endpoints (identical in both versions)
 
 ### `GET /health`
 
@@ -27,6 +52,9 @@ curl http://localhost:80/health
 {"status": "ok", "model_version": "v0.1"}
 ```
 
+The `model_version` value reflects the running image: `"v0.1"` for the v0.1
+image, `"v0.2"` for the v0.2 image.
+
 ### `POST /predict`
 
 ```bash
@@ -35,18 +63,27 @@ curl -X POST http://localhost:80/predict \
   -d '{"age": 0.02, "sex": -0.044, "bmi": 0.06, "bp": -0.03, "s1": -0.02, "s2": 0.03, "s3": -0.02, "s4": 0.02, "s5": 0.02, "s6": -0.001}'
 ```
 
+The response format is identical for both versions; the score differs because
+the models differ:
+
 ```json
-{"prediction": 226.913}
+{"prediction": 235.95}
 ```
 
-(The value is the actual model output for the sample payload above;
-your own payloads will of course produce other scores.)
+(v0.1 returns `235.95` for the payload above, v0.2 returns `226.913`. Your own
+payloads will of course produce other scores.)
 
 The 10 features are the standardized columns of the scikit-learn Diabetes
 dataset (`age`, `sex`, `bmi`, `bp`, `s1`–`s6`), exactly as returned by
 `sklearn.datasets.load_diabetes(as_frame=True)`.
 
-### Error responses (invalid input)
+**v0.2 only — high-risk flag:** v0.2 ships a calibrated triage threshold of
+**170.0**. The `/predict` format is unchanged on purpose (it must stay
+`{"prediction": <float>}`); the dashboard can flag patients client-side with
+`prediction >= 170.0` (Precision 0.70 / Recall 0.64 on the held-out split, see
+`CHANGELOG.md`).
+
+### Error responses (invalid input, identical in both versions)
 
 Invalid requests — a missing or wrongly typed feature, malformed JSON —
 return **HTTP 422** with a JSON body in FastAPI's standard validation format:
@@ -66,21 +103,6 @@ return **HTTP 422** with a JSON body in FastAPI's standard validation format:
 
 `detail[].loc` names the offending field (here: missing `s6`).
 
----
-
-## Run with Docker (recommended)
-
-Released images are publicly available on GHCR:
-
-```bash
-docker pull ghcr.io/<namespace>/<repo>:v0.1
-docker run -it -p 80:80 ghcr.io/<namespace>/<repo>:v0.1
-```
-
-The image is self-contained: the trained model is **baked in at build time**
-(training runs inside the build with a fixed seed, so it is reproducible).
-The service listens on port **80** inside the container.
-
 ## Run locally (without Docker)
 
 ```bash
@@ -88,7 +110,15 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 python train.py                       # trains the model + writes metrics/metrics.json
-MODEL_VERSION=v0.1 uvicorn app:app --port 80
+MODEL_VERSION=v0.2 uvicorn app:app --port 80
+```
+
+`train.py` on `main` trains the **v0.2** model (Ridge). To reproduce the
+metrics of a specific version locally, check out its tag first:
+
+```bash
+git checkout v0.1 && python train.py   # metrics.json: RMSE 53.8534
+git checkout v0.2 && python train.py   # metrics.json: RMSE 53.7775 (+ flag metrics)
 ```
 
 ## Development & tests
@@ -109,15 +139,8 @@ pytest -q           # unit tests (auto-trains the tiny model if missing)
   pushes the image to GHCR and publishes a GitHub Release with metrics.
 
 ```bash
-git tag v0.1
-git push origin v0.1   # triggers the release workflow
-```
-
-## Reproducing the training metrics
-
-```bash
-python train.py   # deterministic: seed 42, fixed versions in requirements.txt
-cat metrics/metrics.json
+git tag v0.2
+git push origin v0.2   # triggers the release workflow
 ```
 
 ## Project layout
