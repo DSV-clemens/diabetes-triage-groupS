@@ -1,7 +1,6 @@
 """Unit tests for the FastAPI endpoints (/health, /predict, error handling)."""
 
 import json
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 
